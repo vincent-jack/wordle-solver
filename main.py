@@ -1,7 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException
 import time
 import random
 
@@ -15,11 +14,11 @@ class WordleBot:
         chrome_options.add_experimental_option("detach", True)
         self.driver = webdriver.Chrome(options=chrome_options)
         self.letters_present = []
-        self.letters_absent = []
+        self.letters_absent = [[], [], [], [], []]
         self.letters_correct = ["", "", "", "", "",]
         with open("words.txt") as word_file:
             self.words_list = [word.strip() for word in word_file.readlines()]
-        self.row_number = 0
+        self.index = 0
 
     def setup(self):
         self.driver.get("https://www.nytimes.com/games/wordle/index.html")
@@ -29,41 +28,41 @@ class WordleBot:
         self.driver.find_element(By.XPATH, "/html/body/div[2]/div/dialog/div/div/button").click()
         time.sleep(0.5)
 
+    def find_keys(self):
+        spaces = self.driver.find_elements(By.CLASS_NAME, "Tile-module_tile__UWEHN")
+        for column in range(0, 5):
+            current_space = spaces[self.index]
+            state = current_space.get_attribute("data-state")
+            key = current_space.text.lower()
+            if state == "correct":
+                self.letters_correct[column] = key
+                if key in self.letters_absent[column]:
+                    self.letters_absent[column] = [letter for letter in self.letters_absent[column] if letter != key]
+            if state == "present":
+                if key not in self.letters_present:
+                    self.letters_present.append(key)
+                    self.letters_absent[column].append(key)
+            if state == "absent":
+                if key not in self.letters_present and key not in self.letters_absent and key not in self.letters_correct:
+                    for pos in self.letters_absent:
+                        pos.append(key)
+            self.index += 1
+
+    def find_possible_words(self):
+        for count in range(0, 5):
+            self.words_list = [word for word in self.words_list if word[count] not in self.letters_absent[count]]
+            if self.letters_correct[count] != "":
+                self.words_list = [word for word in self.words_list if word[count] == self.letters_correct[count]]
+        for letter in self.letters_present:
+            self.words_list = [word for word in self.words_list if letter in word]
+
     def make_guess(self, word):
-        self.row_number += 1
         element = self.driver.switch_to.active_element
         element.send_keys(word + Keys.ENTER)
         time.sleep(2)
-        for column in range(1, 6):
-            try:
-                word_square = self.driver.find_element(By.XPATH, f"/html/body/div[2]/div/div[3]/main/div[1]/div/"
-                                                                 f"div[{self.row_number}]/div[{column}]/div")
-            except NoSuchElementException:
-                word_square = self.driver.find_element(By.XPATH,f"/html/body/div[2]/div/div[4]/main/div[1]/div/"
-                                                                f"div[{self.row_number}]/div[{column}]/div")
-            result = word_square.get_attribute("aria-label")
-            letter = result[12].lower()
 
-            if ("absent" in result and letter not in self.letters_absent and letter not in self.letters_correct
-                    and letter not in self.letters_present):
-                self.letters_absent.append(letter)
-            elif "correct" in result and self.letters_correct[column - 1] != letter:
-                self.letters_correct[column - 1] = letter
-                if letter in self.letters_absent:
-                    self.letters_absent.remove(letter)
-            elif "present" in result and letter not in self.letters_present:
-                self.letters_present.append(letter)
-
-        for absent_letter in self.letters_absent:
-            self.words_list = [word for word in self.words_list if absent_letter not in word]
-
-        for present_letter in self.letters_present:
-            self.words_list = [word for word in self.words_list if present_letter in word]
-
-        indices = [index for index, letter in enumerate(self.letters_correct) if letter != ""]
-        for index in indices:
-            self.words_list = [word for word in self.words_list if word[index] == self.letters_correct[index]]
-        
+        self.find_keys()
+        self.find_possible_words()
         return random.choice(self.words_list)
 
 
