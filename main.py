@@ -30,7 +30,7 @@ class WordleBot:
 
     def find_keys(self):
         spaces = self.driver.find_elements(By.CLASS_NAME, "Tile-module_tile__UWEHN")
-        for column in range(0, 5):
+        for column in range(5):
             current_space = spaces[self.index]
             state = current_space.get_attribute("data-state")
             key = current_space.text.lower()
@@ -38,18 +38,20 @@ class WordleBot:
                 self.letters_correct[column] = key
                 if key in self.letters_absent[column]:
                     self.letters_absent[column] = [letter for letter in self.letters_absent[column] if letter != key]
+                if key in self.letters_present:
+                    self.letters_present = [letter for letter in self.letters_present if letter != key]
             if state == "present":
                 if key not in self.letters_present:
                     self.letters_present.append(key)
-                    self.letters_absent[column].append(key)
+                self.letters_absent[column].append(key)
             if state == "absent":
-                if key not in self.letters_present and key not in self.letters_absent and key not in self.letters_correct:
-                    for pos in self.letters_absent:
-                        pos.append(key)
+                for count in range(5):
+                    if key not in self.letters_correct[count] and key not in self.letters_absent[count]:
+                        self.letters_absent[count].append(key)
             self.index += 1
 
     def find_possible_words(self):
-        for count in range(0, 5):
+        for count in range(5):
             self.words_list = [word for word in self.words_list if word[count] not in self.letters_absent[count]]
             if self.letters_correct[count] != "":
                 self.words_list = [word for word in self.words_list if word[count] == self.letters_correct[count]]
@@ -71,8 +73,5 @@ bot.setup()
 guessed_word = bot.make_guess(STARTING_WORD)
 
 for row in range(5):
-    if "" not in bot.letters_correct:
-        print(f"The correct word is: {"".join(bot.letters_correct)}")
-        break
-    else:
+    if "" in bot.letters_correct:
         guessed_word = bot.make_guess(guessed_word)
