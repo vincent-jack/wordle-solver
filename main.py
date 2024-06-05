@@ -18,7 +18,8 @@ class WordleBot:
         self.letters_correct = ["", "", "", "", "",]
         with open("words.txt") as word_file:
             self.words_list = [word.strip() for word in word_file.readlines()]
-        self.index = 0
+        self.rows = None
+        self.row_count = 0
 
     def setup(self):
         self.driver.get("https://www.nytimes.com/games/wordle/index.html")
@@ -27,28 +28,28 @@ class WordleBot:
         time.sleep(1)
         self.driver.find_element(By.XPATH, "/html/body/div[2]/div/dialog/div/div/button").click()
         time.sleep(0.5)
+        all_spaces = self.driver.find_elements(By.CLASS_NAME, "Tile-module_tile__UWEHN")
+        self.rows = [all_spaces[i:i + 5] for i in range(0, len(all_spaces), 5)]
 
-    def find_keys(self):
-        spaces = self.driver.find_elements(By.CLASS_NAME, "Tile-module_tile__UWEHN")
-        for column in range(5):
-            current_space = spaces[self.index]
-            state = current_space.get_attribute("data-state")
-            key = current_space.text.lower()
-            if state == "correct":
-                self.letters_correct[column] = key
-                if key in self.letters_absent[column]:
-                    self.letters_absent[column] = [letter for letter in self.letters_absent[column] if letter != key]
-                if key in self.letters_present:
-                    self.letters_present = [letter for letter in self.letters_present if letter != key]
-            if state == "present":
-                if key not in self.letters_present:
-                    self.letters_present.append(key)
-                self.letters_absent[column].append(key)
-            if state == "absent":
-                for count in range(5):
-                    if key not in self.letters_correct[count] and key not in self.letters_absent[count]:
-                        self.letters_absent[count].append(key)
-            self.index += 1
+    def find_characters(self):
+        current_row = self.rows[self.row_count]
+        for space in current_row:
+            if space.get_attribute("data-state") == "correct":
+                self.letters_correct[current_row.index(space)] = space.text.lower()
+        for space in current_row:
+            if space.get_attribute("data-state") == "present":
+                if space.text.lower() not in self.letters_present:
+                    self.letters_present.append(space.text.lower())
+                self.letters_absent[current_row.index(space)].append(space.text.lower())
+        for space in current_row:
+            if space.get_attribute("data-state") == "absent":
+                if space.text.lower() in self.letters_present:
+                    self.letters_absent[current_row.index(space)].append(space.text.lower())
+                else:
+                    for position in self.letters_absent:
+                        if space.text.lower() not in position and space.text.lower() not in self.letters_correct[self.letters_absent.index(position)]:
+                            position.append(space.text.lower())
+        self.row_count += 1
 
     def find_possible_words(self):
         for count in range(5):
@@ -61,9 +62,9 @@ class WordleBot:
     def make_guess(self, word):
         element = self.driver.switch_to.active_element
         element.send_keys(word + Keys.ENTER)
-        time.sleep(2)
+        time.sleep(1.6)
 
-        self.find_keys()
+        self.find_characters()
         self.find_possible_words()
         return random.choice(self.words_list)
 
