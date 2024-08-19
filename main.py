@@ -23,10 +23,12 @@ class WordleBot:
 
     def setup(self):
         self.driver.get("https://www.nytimes.com/games/wordle/index.html")
+        time.sleep(2)
+        self.driver.find_element(By.XPATH, '//*[@id="fides-button-group"]/div[2]/button[1]').click()
+        time.sleep(2)
+        self.driver.find_element(By.XPATH, "/html/body/div[3]/div/div/div/div/div[2]/button[2]").click()
         time.sleep(1)
-        self.driver.find_element(By.XPATH, "/html/body/div[2]/div/div/div/div/div[2]/button[2]").click()
-        time.sleep(1)
-        self.driver.find_element(By.XPATH, "/html/body/div[2]/div/dialog/div/div/button").click()
+        self.driver.find_element(By.XPATH, '//*[@id="help-dialog"]/div/div/button').click()
         time.sleep(0.5)
         all_spaces = self.driver.find_elements(By.CLASS_NAME, "Tile-module_tile__UWEHN")
         self.rows = [all_spaces[i:i + 5] for i in range(0, len(all_spaces), 5)]
@@ -47,7 +49,8 @@ class WordleBot:
                     self.letters_absent[current_row.index(space)].append(space.text.lower())
                 else:
                     for position in self.letters_absent:
-                        if space.text.lower() not in position and space.text.lower() not in self.letters_correct[self.letters_absent.index(position)]:
+                        if (space.text.lower() not in position and space.text.lower()
+                                not in self.letters_correct[self.letters_absent.index(position)]):
                             position.append(space.text.lower())
         self.row_count += 1
 
